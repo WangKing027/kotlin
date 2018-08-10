@@ -24,7 +24,7 @@ class IvyResolver : Resolver {
     override fun tryResolve(dependsOn: DependsOn): Iterable<File>? {
         val artifactId = when {
             dependsOn.groupId.isValidParam() || dependsOn.artifactId.isValidParam() -> {
-                listOf(dependsOn.groupId, dependsOn.artifactId, null, dependsOn.version)
+                listOf(dependsOn.groupId, dependsOn.artifactId, dependsOn.version)
             }
             dependsOn.value.isValidParam() && dependsOn.value.count { it == ':' } == 2 -> {
                 dependsOn.value.split(':')
