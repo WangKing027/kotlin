@@ -17,10 +17,7 @@
 package org.jetbrains.kotlin.script.util
 
 import org.jetbrains.kotlin.script.InvalidScriptResolverAnnotation
-import org.jetbrains.kotlin.script.util.resolvers.DirectResolver
-import org.jetbrains.kotlin.script.util.resolvers.FlatLibDirectoryResolver
-import org.jetbrains.kotlin.script.util.resolvers.MavenResolver
-import org.jetbrains.kotlin.script.util.resolvers.Resolver
+import org.jetbrains.kotlin.script.util.resolvers.*
 import java.io.File
 import java.util.concurrent.Future
 import kotlin.script.dependencies.KotlinScriptExternalDependencies
@@ -74,3 +71,6 @@ class LocalFilesResolver :
 
 class FilesAndMavenResolver :
         KotlinAnnotatedScriptDependenciesResolver(emptyList(), arrayListOf(DirectResolver(), MavenResolver()))
+
+class FilesAndIvyResolver :
+    KotlinAnnotatedScriptDependenciesResolver(emptyList(), arrayListOf(DirectResolver(), IvyResolver()))
