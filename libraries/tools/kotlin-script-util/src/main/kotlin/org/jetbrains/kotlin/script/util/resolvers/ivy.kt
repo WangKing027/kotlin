@@ -14,8 +14,8 @@ import org.apache.ivy.core.settings.IvySettings
 import org.apache.ivy.plugins.parser.xml.XmlModuleDescriptorWriter
 import org.apache.ivy.plugins.resolver.URLResolver
 import org.jetbrains.kotlin.script.util.DependsOn
+import org.jetbrains.kotlin.script.util.Repository
 import java.io.File
-
 
 class IvyResolver : Resolver {
 
@@ -36,19 +36,24 @@ class IvyResolver : Resolver {
         return resolveArtifact(artifactId)
     }
 
+    private val ivyResolvers = arrayListOf<URLResolver>()
+
     private fun resolveArtifact(artifactId: List<String>): List<File> {
 
+        if (ivyResolvers.isEmpty()) {
+            ivyResolvers.add(
+                URLResolver().apply {
+                    isM2compatible = true
+                    name = "central"
+                    addArtifactPattern("http://repo1.maven.org/maven2/$DEFAULT_ARTIFACT_PATTERN")
+                }
+            )
+        }
         val ivySettings = IvySettings().apply {
-            //url resolver for configuration of maven repo
-            val resolver = URLResolver().apply {
-                isM2compatible = true
-                name = "central"
-                addArtifactPattern(
-                    "http://repo1.maven.org/maven2/" + "[organisation]/[module]/[revision]/[artifact](-[revision]).[ext]"
-                )
+            for (resolver in ivyResolvers) {
+                addResolver(resolver)
             }
-            addResolver(resolver)
-            setDefaultResolver(resolver.name)
+            setDefaultResolver(ivyResolvers.first().name)
         }
 
         val ivy = Ivy.newInstance(ivySettings)
@@ -76,5 +81,22 @@ class IvyResolver : Resolver {
         val report = ivy.resolve(ivyfile.toURI().toURL(), resolveOptions)
 
         return report.allArtifactsReports.map { it.localFile }
+    }
+
+    override fun tryAddRepo(annotation: Repository): Boolean {
+        val urlStr = annotation.url.takeIf { it.isValidParam() } ?: annotation.value.takeIf { it.isValidParam() } ?: return false
+        val url = urlStr.toRepositoryUrlOrNull() ?: return false
+        ivyResolvers.add(
+            URLResolver().apply {
+                isM2compatible = true
+                name = annotation.id.takeIf { it.isValidParam() } ?: url.host
+                addArtifactPattern("${url.toString().let { if (it.endsWith('/')) it else "$it/" }}$DEFAULT_ARTIFACT_PATTERN")
+            }
+        )
+        return true
+    }
+
+    companion object {
+        const val DEFAULT_ARTIFACT_PATTERN = "[organisation]/[module]/[revision]/[artifact](-[revision]).[ext]"
     }
 }
