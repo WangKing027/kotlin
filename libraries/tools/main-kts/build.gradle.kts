@@ -22,7 +22,6 @@ val fatJar by configurations.creating
 val projectsDependencies = listOf(
     ":kotlin-scripting-common",
     ":kotlin-scripting-jvm",
-    ":kotlin-scripting-misc",
     ":kotlin-script-util",
     ":kotlin-script-runtime")
 

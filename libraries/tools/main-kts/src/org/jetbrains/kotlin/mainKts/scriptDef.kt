@@ -8,58 +8,41 @@ package org.jetbrains.kotlin.mainKts
 import org.jetbrains.kotlin.script.util.DependsOn
 import org.jetbrains.kotlin.script.util.FilesAndIvyResolver
 import org.jetbrains.kotlin.script.util.Repository
-import org.jetbrains.kotlin.script.util.scriptCompilationClasspathFromContext
 import java.io.File
 import kotlin.script.dependencies.ScriptContents
 import kotlin.script.dependencies.ScriptDependenciesResolver
-import kotlin.script.experimental.annotations.*
+import kotlin.script.experimental.annotations.KotlinScript
 import kotlin.script.experimental.api.*
-import kotlin.script.experimental.basic.AnnotationsBasedCompilationConfigurator
 import kotlin.script.experimental.jvm.JvmDependency
-import kotlin.script.experimental.jvm.jvmJavaHomeParams
-import kotlin.script.experimental.jvm.mapLegacyDiagnosticSeverity
-import kotlin.script.experimental.jvm.mapLegacyScriptPosition
-import kotlin.script.experimental.jvm.runners.BasicJvmScriptEvaluator
-import kotlin.script.experimental.misc.invoke
-import kotlin.script.experimental.util.TypedKey
+import kotlin.script.experimental.jvm.compat.mapLegacyDiagnosticSeverity
+import kotlin.script.experimental.jvm.compat.mapLegacyScriptPosition
+import kotlin.script.experimental.jvm.dependenciesFromCurrentContext
+import kotlin.script.experimental.jvm.jvm
 
 @Suppress("unused")
-@KotlinScript
-@KotlinScriptFileExtension("main.kts")
-@KotlinScriptDefaultCompilationConfiguration(DefaultMainKtsConfiguration::class)
-@KotlinScriptCompilationConfigurator(MainKtsConfigurator::class)
-@KotlinScriptEvaluator(BasicJvmScriptEvaluator::class)
+@KotlinScript(extension = "main.kts", definition = MainKtsScriptDefinition::class)
 abstract class MainKtsScript(val args: Array<String>)
 
-private val defaultMainKtsConfigParams = jvmJavaHomeParams + with(ScriptCompileConfigurationProperties) {
-    listOf(
-        baseClass<MainKtsScript>(),
-        defaultImports(DependsOn::class.java.name, Repository::class.java.name),
-        dependencies(
-            JvmDependency(
-                scriptCompilationClasspathFromContext(
-                    "scripting-jvm-maven-deps", // script library jar name
-                    "kotlin-script-util" // DependsOn annotation is taken from script-util
-                )
+object MainKtsScriptDefinition : ScriptDefinition(
+    {
+        defaultImports(DependsOn::class, Repository::class)
+        jvm {
+            dependenciesFromCurrentContext(
+                "kotlin-main-kts" // script library jar name
             )
-        ),
-        refineConfigurationOnAnnotations(DependsOn::class, Repository::class)
-    )
-}
+        }
+        // variant: dependencies(collectDependenciesFromCurrentContext(...
+        refineConfiguration {
+            onAnnotations(DependsOn::class, Repository::class, handler = MainKtsConfigurator())
+        }
+    })
 
-object DefaultMainKtsConfiguration : List<Pair<TypedKey<*>, Any?>> by defaultMainKtsConfigParams
-
-class MainKtsConfigurator(environment: ScriptingEnvironment) : AnnotationsBasedCompilationConfigurator(environment) {
-
+class MainKtsConfigurator : RefineScriptCompilationConfigurationHandler {
     private val resolver = FilesAndIvyResolver()
 
-    override suspend fun refineConfiguration(
-        scriptSource: ScriptSource,
-        configuration: ScriptCompileConfiguration,
-        processedScriptData: ProcessedScriptData
-    ): ResultWithDiagnostics<ScriptCompileConfiguration> {
-        val annotations = processedScriptData.getOrNull(ProcessedScriptDataProperties.foundAnnotations)?.takeIf { it.isNotEmpty() }
-            ?: return configuration.asSuccess()
+    override operator fun invoke(script: ScriptDataFacade): ResultWithDiagnostics<ScriptDefinition?> {
+        val annotations = script.collectedData?.get(ScriptCollectedData.foundAnnotations)?.takeIf { it.isNotEmpty() }
+            ?: return null.asSuccess()
         val scriptContents = object : ScriptContents {
             override val annotations: Iterable<Annotation> = annotations
             override val file: File? = null
@@ -71,13 +54,13 @@ class MainKtsConfigurator(environment: ScriptingEnvironment) : AnnotationsBasedC
         }
         return try {
             val newDepsFromResolver = resolver.resolve(scriptContents, emptyMap(), ::report, null).get()
-                ?: return configuration.asSuccess(diagnostics)
+                ?: return null.asSuccess(diagnostics) // TODO: failure
             val resolvedClasspath = newDepsFromResolver.classpath.toList().takeIf { it.isNotEmpty() }
-                ?: return configuration.asSuccess(diagnostics)
-            val newDependency = JvmDependency(resolvedClasspath)
-            val updatedDeps =
-                configuration.getOrNull(ScriptCompileConfigurationProperties.dependencies)?.plus(newDependency) ?: listOf(newDependency)
-            ScriptCompileConfiguration(configuration, ScriptCompileConfigurationProperties.dependencies(updatedDeps)).asSuccess(diagnostics)
+                ?: return null.asSuccess(diagnostics) // TODO: failure
+
+            ScriptDefinition(script.definition) {
+                dependencies.append(JvmDependency(resolvedClasspath))
+            }.asSuccess(diagnostics)
         } catch (e: Throwable) {
             ResultWithDiagnostics.Failure(*diagnostics.toTypedArray(), e.asDiagnostics())
         }
