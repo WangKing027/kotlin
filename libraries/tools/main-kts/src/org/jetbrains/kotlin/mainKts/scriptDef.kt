@@ -27,9 +27,7 @@ object MainKtsScriptDefinition : ScriptDefinition(
     {
         defaultImports(DependsOn::class, Repository::class)
         jvm {
-            dependenciesFromCurrentContext(
-                "kotlin-main-kts" // script library jar name
-            )
+            dependenciesFromCurrentContext(wholeClasspath = true)
         }
         // variant: dependencies(collectDependenciesFromCurrentContext(...
         refineConfiguration {
