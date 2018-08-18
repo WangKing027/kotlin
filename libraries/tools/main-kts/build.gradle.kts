@@ -31,8 +31,11 @@ dependencies {
         fatJarContents(project(it)) { isTransitive = false }
         testCompile(project(it))
     }
+    runtime(project(":kotlin-compiler"))
+    runtime(project(":kotlin-reflect"))
     testCompile(project(":kotlin-scripting-jvm-host"))
     testCompile(commonDep("junit"))
+    testRuntime("org.apache.ivy:ivy:2.4.0")
     fatJarContents("org.apache.ivy:ivy:2.4.0")
     fatJarContents(commonDep("org.jetbrains.kotlinx", "kotlinx-coroutines-core")) { isTransitive = false }
     proguardLibraryJars(files(firstFromJavaHomeThatExists("jre/lib/rt.jar", "../Classes/classes.jar"),
@@ -45,10 +48,6 @@ dependencies {
 sourceSets {
     "main" { projectDefault() }
     "test" { projectDefault() }
-}
-
-projectTest {
-    workingDir = rootDir
 }
 
 val jar by tasks
