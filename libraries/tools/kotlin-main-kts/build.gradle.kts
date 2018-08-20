@@ -33,9 +33,6 @@ dependencies {
     }
     runtime(project(":kotlin-compiler"))
     runtime(project(":kotlin-reflect"))
-    testCompile(project(":kotlin-scripting-jvm-host"))
-    testCompile(commonDep("junit"))
-    testRuntime("org.apache.ivy:ivy:2.4.0")
     fatJarContents("org.apache.ivy:ivy:2.4.0")
     fatJarContents(commonDep("org.jetbrains.kotlinx", "kotlinx-coroutines-core")) { isTransitive = false }
     proguardLibraryJars(files(firstFromJavaHomeThatExists("jre/lib/rt.jar", "../Classes/classes.jar"),
@@ -47,18 +44,23 @@ dependencies {
 
 sourceSets {
     "main" { projectDefault() }
-    "test" { projectDefault() }
+    "test" { }
 }
 
-val jar by tasks
+noDefaultJar()
 
 val packJar by task<ShadowJar> {
     configurations = listOf(fatJar)
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     destinationDir = File(buildDir, "libs")
 
-    setupPublicJar("before-proguard")
-    from(jar)
+    if (shrink) {
+        setupPublicJar("before-proguard")
+    }
+    else {
+        setupPublicJar()
+    }
+    from(mainSourceSet.output)
     from(fatJarContents)
 }
 
@@ -68,7 +70,7 @@ val proguard by task<ProGuardTask> {
 
     injars(mapOf("filter" to "!META-INF/versions/**"), packJar.outputs.files)
 
-    val outputJar = fileFrom(buildDir, "libs", "$jarBaseName-after-proguard.jar")
+    val outputJar = fileFrom(buildDir, "libs", "$jarBaseName-$version.jar")
 
     outjars(outputJar)
 
@@ -80,6 +82,9 @@ val proguard by task<ProGuardTask> {
 }
 
 val pack = if (shrink) proguard else packJar
+
+val jar = tasks.replace("jar")
+jar.dependsOn(pack)
 
 runtimeJarArtifactBy(pack, pack.outputs.files.singleFile) {
     name = jarBaseName

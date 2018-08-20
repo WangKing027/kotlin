@@ -4,12 +4,15 @@
  */
 package org.jetbrains.kotlin.mainKts.test
 
+import com.sun.xml.internal.fastinfoset.util.StringArray
 import org.jetbrains.kotlin.mainKts.MainKtsScript
 import org.junit.Assert
 import org.junit.Test
 import java.io.File
 import kotlin.script.experimental.api.EvaluationResult
 import kotlin.script.experimental.api.ResultWithDiagnostics
+import kotlin.script.experimental.api.ScriptEvaluationEnvironment
+import kotlin.script.experimental.api.constructorArgs
 import kotlin.script.experimental.host.toScriptSource
 import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
 import kotlin.script.experimental.jvmhost.createBasicScriptDefinitionFromAnnotatedBaseClass
@@ -18,7 +21,11 @@ fun evalFile(scriptFile: File): ResultWithDiagnostics<EvaluationResult> {
 
     val scriptDefinition = createBasicScriptDefinitionFromAnnotatedBaseClass<MainKtsScript>()
 
-    return BasicJvmScriptingHost().eval(scriptFile.toScriptSource(), scriptDefinition, null)
+    val evaluationEnv = ScriptEvaluationEnvironment {
+        constructorArgs(emptyArray<String>())
+    }
+
+    return BasicJvmScriptingHost().eval(scriptFile.toScriptSource(), scriptDefinition, evaluationEnv)
 }
 
 class MainKtsTest {
