@@ -1074,7 +1074,7 @@ public class KotlinTypeMapper {
 
         String manglingSuffix = InlineClassManglingUtilsKt.getInlineClassValueParametersManglingSuffix(descriptor);
         if (manglingSuffix != null) {
-            name += "$" + manglingSuffix;
+            name += "-" + manglingSuffix;
         }
 
         if (DescriptorUtils.isTopLevelDeclaration(descriptor)) {
