@@ -20,10 +20,10 @@ import kotlin.script.experimental.jvm.dependenciesFromCurrentContext
 import kotlin.script.experimental.jvm.jvm
 
 @Suppress("unused")
-@KotlinScript(extension = "main.kts", definition = MainKtsScriptDefinition::class)
+@KotlinScript(extension = "main.kts", compilationConfiguration = MainKtsScriptDefinition::class)
 abstract class MainKtsScript(val args: Array<String>)
 
-object MainKtsScriptDefinition : ScriptDefinition(
+object MainKtsScriptDefinition : ScriptCompilationConfiguration(
     {
         defaultImports(DependsOn::class, Repository::class)
         jvm {
@@ -38,9 +38,9 @@ object MainKtsScriptDefinition : ScriptDefinition(
 class MainKtsConfigurator : RefineScriptCompilationConfigurationHandler {
     private val resolver = FilesAndIvyResolver()
 
-    override operator fun invoke(script: ScriptDataFacade): ResultWithDiagnostics<ScriptDefinition?> {
-        val annotations = script.collectedData?.get(ScriptCollectedData.foundAnnotations)?.takeIf { it.isNotEmpty() }
-            ?: return null.asSuccess()
+    override operator fun invoke(context: ScriptConfigurationRefinementContext): ResultWithDiagnostics<ScriptCompilationConfiguration> {
+        val annotations = context.collectedData?.get(ScriptCollectedData.foundAnnotations)?.takeIf { it.isNotEmpty() }
+            ?: return context.compilationConfiguration.asSuccess()
         val scriptContents = object : ScriptContents {
             override val annotations: Iterable<Annotation> = annotations
             override val file: File? = null
@@ -52,11 +52,11 @@ class MainKtsConfigurator : RefineScriptCompilationConfigurationHandler {
         }
         return try {
             val newDepsFromResolver = resolver.resolve(scriptContents, emptyMap(), ::report, null).get()
-                ?: return null.asSuccess(diagnostics) // TODO: failure
+                ?: return context.compilationConfiguration.asSuccess(diagnostics) // TODO: failure
             val resolvedClasspath = newDepsFromResolver.classpath.toList().takeIf { it.isNotEmpty() }
-                ?: return null.asSuccess(diagnostics) // TODO: failure
+                ?: return context.compilationConfiguration.asSuccess(diagnostics) // TODO: failure
 
-            ScriptDefinition(script.definition) {
+            ScriptCompilationConfiguration(context.compilationConfiguration) {
                 dependencies.append(JvmDependency(resolvedClasspath))
             }.asSuccess(diagnostics)
         } catch (e: Throwable) {
