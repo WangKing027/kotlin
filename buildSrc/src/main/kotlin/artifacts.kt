@@ -182,6 +182,8 @@ private fun Project.runtimeJarTaskIfExists(): Task? =
 fun ConfigurationContainer.getOrCreate(name: String): Configuration = findByName(name) ?: create(name)
 
 fun Jar.setupPublicJar(baseName: String, classifier: String = "") {
+    this.baseName = baseName
+    this.version = project.rootProject.extra["buildNumber"] as String
     this.classifier = classifier
     manifest.attributes.apply {
         put("Implementation-Vendor", "JetBrains")
