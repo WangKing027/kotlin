@@ -475,13 +475,13 @@ abstract class AbstractIncrementalJpsTest(
             markedDirtyAfterRound.addAll(files)
         }
 
-        override fun buildStarted(context: CompileContext, chunk: ModuleChunk) {
+        override fun chunkBuildStarted(context: CompileContext, chunk: ModuleChunk) {
             if (!chunk.isDummy(context) && context.projectDescriptor.project.modules.size > 1) {
                 logLine("Building ${chunk.modules.sortedBy { it.name }.joinToString { it.name }}")
             }
         }
 
-        override fun afterBuildStarted(context: CompileContext, chunk: ModuleChunk) {
+        override fun afterChunkBuildStarted(context: CompileContext, chunk: ModuleChunk) {
             logDirtyFiles(markedDirtyBeforeRound)
         }
 

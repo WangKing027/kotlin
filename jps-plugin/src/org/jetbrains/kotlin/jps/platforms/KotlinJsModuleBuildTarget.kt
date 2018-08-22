@@ -29,7 +29,6 @@ import org.jetbrains.kotlin.incremental.js.IncrementalResultsConsumer
 import org.jetbrains.kotlin.incremental.js.IncrementalResultsConsumerImpl
 import org.jetbrains.kotlin.jps.build.KotlinDirtySourceFilesHolder
 import org.jetbrains.kotlin.jps.build.ModuleBuildTarget
-import org.jetbrains.kotlin.jps.build.kotlin
 import org.jetbrains.kotlin.jps.incremental.JpsIncrementalCache
 import org.jetbrains.kotlin.jps.incremental.JpsIncrementalJsCache
 import org.jetbrains.kotlin.jps.model.k2JsCompilerArguments
@@ -60,13 +59,13 @@ class KotlinJsModuleBuildTarget(compileContext: CompileContext, jpsModuleBuildTa
 
     val isFirstBuild: Boolean
         get() {
-            val targetDataRoot = context.projectDescriptor.dataManager.dataPaths.getTargetDataRoot(jpsModuleBuildTarget)
+            val targetDataRoot = jpsContext.projectDescriptor.dataManager.dataPaths.getTargetDataRoot(jpsModuleBuildTarget)
             return !IncrementalJsCache.hasHeaderFile(targetDataRoot)
         }
 
     override fun makeServices(
         builder: Services.Builder,
-        incrementalCaches: Map<ModuleBuildTarget, JpsIncrementalCache>,
+        incrementalCaches: Map<KotlinModuleBuildTarget<*>, JpsIncrementalCache>,
         lookupTracker: LookupTracker,
         exceptActualTracer: ExpectActualTracker
     ) {
@@ -76,7 +75,7 @@ class KotlinJsModuleBuildTarget(compileContext: CompileContext, jpsModuleBuildTa
             register(IncrementalResultsConsumer::class.java, IncrementalResultsConsumerImpl())
 
             if (isIncrementalCompilationEnabled && !isFirstBuild) {
-                val cache = incrementalCaches[jpsModuleBuildTarget] as IncrementalJsCache
+                val cache = incrementalCaches[this@KotlinJsModuleBuildTarget] as IncrementalJsCache
 
                 register(
                     IncrementalDataProvider::class.java,
@@ -192,7 +191,7 @@ class KotlinJsModuleBuildTarget(compileContext: CompileContext, jpsModuleBuildTa
         result: MutableList<String>,
         isTests: Boolean
     ) {
-        val dependencyBuildTarget = context.kotlin.targetsBinding[ModuleBuildTarget(module, isTests)]
+        val dependencyBuildTarget = kotlinContext.targetsBinding[ModuleBuildTarget(module, isTests)]
 
         if (dependencyBuildTarget != this@KotlinJsModuleBuildTarget &&
             dependencyBuildTarget is KotlinJsModuleBuildTarget &&

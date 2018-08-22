@@ -44,12 +44,15 @@ import java.io.File
  * Properties and actions for Kotlin test / production module build target.
  */
 abstract class KotlinModuleBuildTarget<BuildMetaInfoType : BuildMetaInfo>(
-    val context: CompileContext,
+    val jpsContext: CompileContext,
     val jpsModuleBuildTarget: ModuleBuildTarget
 ) {
-    // TODO(1.2.80): got rid of context and replace it with kotlinContext
+    // TODO(1.2.80): got rid of jpsContext and replace it with kotlinContext
     val kotlinContext: KotlinCompileContext
-        get() = context.kotlin
+        get() = jpsContext.kotlin
+
+    // Initialized in KotlinCompileContext.loadTargets
+    lateinit var chunk: KotlinChunk
 
     abstract val globalLookupCacheId: String
 
@@ -96,8 +99,8 @@ abstract class KotlinModuleBuildTarget<BuildMetaInfoType : BuildMetaInfo>(
             val result = mutableListOf<KotlinModuleBuildTarget<*>>()
 
             if (isTests) {
-                result.addIfNotNull(context.kotlinBuildTargets[module.productionBuildTarget])
-                result.addIfNotNull(context.kotlinBuildTargets[relatedProductionModule?.productionBuildTarget])
+                result.addIfNotNull(jpsContext.kotlinBuildTargets[module.productionBuildTarget])
+                result.addIfNotNull(jpsContext.kotlinBuildTargets[relatedProductionModule?.productionBuildTarget])
             }
 
             return result.filter { it.sources.isNotEmpty() }
@@ -111,6 +114,7 @@ abstract class KotlinModuleBuildTarget<BuildMetaInfoType : BuildMetaInfo>(
     private val relatedProductionModule: JpsModule?
         get() = JpsJavaExtensionService.getInstance().getTestModuleProperties(module)?.productionModule
 
+    @Deprecated("Consider using `dependencies`")
     val allDependencies by lazy {
         JpsJavaExtensionService.dependencies(module).recursively().exportedOnly()
             .includedIn(JpsJavaClasspathKind.compile(isTests))
@@ -129,8 +133,8 @@ abstract class KotlinModuleBuildTarget<BuildMetaInfoType : BuildMetaInfo>(
             .getOrCreateCompilerConfiguration(module.project)
             .compilerExcludes
 
-        val buildRootIndex = context.projectDescriptor.buildRootIndex
-        val roots = buildRootIndex.getTargetRoots(jpsModuleBuildTarget, context)
+        val buildRootIndex = jpsContext.projectDescriptor.buildRootIndex
+        val roots = buildRootIndex.getTargetRoots(jpsModuleBuildTarget, jpsContext)
         roots.forEach { rootDescriptor ->
             val isIncludedSourceRoot = rootDescriptor is KotlinIncludedModuleSourceRoot
 
@@ -204,7 +208,7 @@ abstract class KotlinModuleBuildTarget<BuildMetaInfoType : BuildMetaInfo>(
         chunk: ModuleChunk,
         dirtyFilesHolder: KotlinDirtySourceFilesHolder,
         outputItems: Map<ModuleBuildTarget, Iterable<GeneratedFile>>,
-        incrementalCaches: Map<ModuleBuildTarget, JpsIncrementalCache>
+        incrementalCaches: Map<KotlinModuleBuildTarget<*>, JpsIncrementalCache>
     ) {
         // by default do nothing
     }
@@ -221,7 +225,7 @@ abstract class KotlinModuleBuildTarget<BuildMetaInfoType : BuildMetaInfo>(
 
     open fun makeServices(
         builder: Services.Builder,
-        incrementalCaches: Map<ModuleBuildTarget, JpsIncrementalCache>,
+        incrementalCaches: Map<KotlinModuleBuildTarget<*>, JpsIncrementalCache>,
         lookupTracker: LookupTracker,
         exceptActualTracer: ExpectActualTracker
     ) {
@@ -230,7 +234,7 @@ abstract class KotlinModuleBuildTarget<BuildMetaInfoType : BuildMetaInfo>(
             register(ExpectActualTracker::class.java, exceptActualTracer)
             register(CompilationCanceledStatus::class.java, object : CompilationCanceledStatus {
                 override fun checkCanceled() {
-                    if (context.cancelStatus.isCanceled) throw CompilationCanceledException()
+                    if (jpsContext.cancelStatus.isCanceled) throw CompilationCanceledException()
                 }
             })
         }
@@ -269,7 +273,7 @@ abstract class KotlinModuleBuildTarget<BuildMetaInfoType : BuildMetaInfo>(
         val hasRemovedSources = dirtyFilesHolder.getRemovedFiles(target.jpsModuleBuildTarget).isNotEmpty()
         val hasDirtyOrRemovedSources = moduleSources.isNotEmpty() || hasRemovedSources
         if (hasDirtyOrRemovedSources) {
-            val logger = context.loggingManager.projectBuilderLogger
+            val logger = jpsContext.loggingManager.projectBuilderLogger
             if (logger.isEnabled) {
                 logger.logCompiledFiles(moduleSources, KotlinBuilder.KOTLIN_BUILDER_NAME, "Compiling files:")
             }

@@ -984,13 +984,15 @@ open class KotlinJpsBuildTest : AbstractKotlinJpsBuildTestCase() {
         val actual = StringBuilder()
         buildCustom(CanceledStatus.NULL, TestProjectBuilderLogger(), BuildResult()) {
             project.setTestingContext(TestingContext(LookupTracker.DO_NOTHING, object : TestingBuildLogger {
-                override fun buildStarted(context: CompileContext, chunk: ModuleChunk) {
-                    actual.append("Targets dependent on ${chunk.targets.joinToString() }:\n")
-                    actual.append(getDependentTargets(chunk.targets, context).map { it.toString() }.sorted().joinToString("\n"))
+                override fun chunkBuildStarted(context: CompileContext, chunk: ModuleChunk) {
+                    actual.append("Targets dependent on ${chunk.targets.joinToString()}:\n")
+                    val dependentRecursively = mutableSetOf<KotlinChunk>()
+                    context.kotlin.getChunk(chunk)!!.collectDependentChunksRecursively(dependentRecursively)
+                    actual.append(dependentRecursively.asSequence().map { it.toString() }.sorted().joinToString("\n"))
                     actual.append("\n---------\n")
                 }
 
-                override fun afterBuildStarted(context: CompileContext, chunk: ModuleChunk) {}
+                override fun afterChunkBuildStarted(context: CompileContext, chunk: ModuleChunk) {}
                 override fun invalidOrUnusedCache(
                     chunk: KotlinChunk?,
                     target: KotlinModuleBuildTarget<*>?,
